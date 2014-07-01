@@ -2,6 +2,7 @@ var express = require('express');
 var util = require('./lib/utility');
 var partials = require('express-partials');
 var crypto = require('crypto');
+var bcrypt = require('bcrypt-nodejs');
 
 
 var db = require('./app/config');
@@ -25,9 +26,7 @@ app.configure(function() {
 
 //create hashing function
 var hasher=function(pw) {
-  var shasum = crypto.createHash('sha1');
-  shasum.update(pw);
-  var hashWord=shasum.digest('hex').slice(0, 10);
+  var hashWord=bcrypt.hashSync(pw);
   console.log(hashWord);
   return hashWord;
 };
@@ -113,9 +112,9 @@ app.post('/login', function(req, res){
   .then(function(results) {
     if (results[0]!==undefined) {
       var user=results[0];
-      var hashWord=hasher(password);
+      //var hashWord=hasher(password);
 
-      if(hashWord === user.password){
+      if (bcrypt.compareSync(password, user.password)) {
         console.log('success');
         req.session.regenerate(function() {
           req.session.username=username;
