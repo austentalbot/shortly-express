@@ -3,10 +3,7 @@ var util = require('./lib/utility');
 var partials = require('express-partials');
 var crypto = require('crypto');
 var bcrypt = require('bcrypt-nodejs');
-var passport = require('passport');
-var LocalStrategy = require('passport-local').Strategy;
-// var GithubStrategy = require('passport-github').Strategy;
-// var ids=require('./oath.js').ids.github;
+
 
 var db = require('./app/config');
 var Users = require('./app/collections/users');
@@ -19,9 +16,6 @@ var app = express();
 app.use(express.cookieParser('shhhh, very secret'));
 app.use(express.session());
 
-app.use(passport.initialize());
-app.use(passport.session());
-
 app.configure(function() {
   app.set('views', __dirname + '/views');
   app.set('view engine', 'ejs');
@@ -30,42 +24,6 @@ app.configure(function() {
   app.use(express.static(__dirname + '/public'));
 });
 
-//configure our passport strategy
-passport.serializeUser(function(user, done) {
-  done(null, user);
-});
-
-passport.deserializeUser(function(user, done) {
-  done(null, user);
-});
-
-passport.use(new LocalStrategy(
-  function(username, password, done){
-    process.nextTick(function(){
-
-      //check and compare username and password
-
-      console.log(username, password);
-
-      db.knex('users').where({username: username})
-      .select()
-      .then(function(results) {
-        if (results[0]!==undefined) {
-          var user=results[0];
-          if (bcrypt.compareSync(password, user.password)) {
-            console.log('correct password');
-            return done(null, true);
-          } else{
-            return done(null, false, {message: 'Invalid password'});
-          }
-        } else {
-          return done(null, false, {message: 'Username not found'});
-        }
-      });
-    });
-  })
-);
-
 //create hashing function
 var hasher=function(pw) {
   var hashWord=bcrypt.hashSync(pw);
@@ -73,16 +31,28 @@ var hasher=function(pw) {
   return hashWord;
 };
 
+
+//create function to restrict access to certain pages
+var checkUser = function(req, res, next) {
+  if (req.session.username) {
+    next();
+  } else {
+    console.log('You must log in to see this page');
+    req.session.error = 'You must log in to see this page';
+    res.redirect('/login');
+  }
+};
+
 //restrict version
-app.get('/', passport.authenticate('local'), function(req, res) {
+app.get('/', checkUser, function(req, res) {
   res.render('index');
 });
 
-app.get('/create', passport.authenticate('local'), function(req, res) {
+app.get('/create', checkUser, function(req, res) {
   res.render('index');
 });
 
-app.get('/links', passport.authenticate('local'), function(req, res) {
+app.get('/links', checkUser, function(req, res) {
   Links.reset().fetch().then(function(links) {
     res.send(200, links.models);
   });
@@ -131,13 +101,40 @@ app.get('/login', function(req, res){
   res.render('login');
 });
 //app.post login
-app.post('/login',
-  passport.authenticate('local'),
-  function(req, res){
-    res.redirect('index');
-  }
-);
+app.post('/login', function(req, res){
+  console.log('Posting to login');
+  var username = req.body.username;
+  var password = req.body.password;
+  console.log(username, password);
 
+  db.knex('users').where({username: username})
+  .select()
+  .then(function(results) {
+    if (results[0]!==undefined) {
+      var user=results[0];
+      //var hashWord=hasher(password);
+
+      if (bcrypt.compareSync(password, user.password)) {
+        console.log('success');
+        req.session.regenerate(function() {
+          req.session.username=username;
+          res.redirect('index');
+        });
+      } else{
+        console.log('FAILURE');
+        res.redirect('login');
+      }
+    } else {
+      console.log('USERNAME NOT FOUND');
+      res.redirect('login');
+    }
+
+  });
+  // db.knex('urls').select().then(function() {
+  //   console.log(arguments);
+  // });
+
+});
 //app.get signup
 app.get('/signup', function(req, res){
   console.log('Getting signup');
