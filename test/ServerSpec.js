@@ -14,7 +14,7 @@ var Link = require('../app/models/link');
 // when working on authentication tests.
 /************************************************************/
 //var xbeforeEach = beforeEach;
-var xbeforeEach = function(){};
+var beforeEach = function(){};
 /************************************************************/
 
 
@@ -64,7 +64,7 @@ describe('', function() {
 
     var requestWithSession = request.defaults({jar: true});
 
-    xbeforeEach(function(done){
+    beforeEach(function(done){
       // create a user that we can then log-in with
       new User({
           'username': 'Phillip',
